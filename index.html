@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thumbnail Image Generator</title>
+</head>
+<style>
+    #videoPreview
+    {
+        width: 25vw;
+        height: auto;
+    }
+    body
+    {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        text-align: center;
+    }
+    *{
+        margin: 0;
+        padding: 0;
+    }
+    body
+    {
+        height: 100vh;
+    }
+    #thumbPreview
+    {
+        width: 25vw;
+        height: auto;
+    }
+</style>
+<body>
+        <label>
+            Subir Video: <br>
+            <input type="file" name="Video" id="videoProcess" onchange="previewVideo()" required>
+        </label><br>
+        <label>
+            Video: <br>
+            <video src="" id="videoPreview" controls></video>
+        </label><br>
+        <label>
+            Video Duration Frame: 
+            <input type="range" oninput="durationFrame(this)" max="100" value="0" min="0">
+        </label><br>
+        <button onclick="procesar()">Procesar</button>
+    <label>
+        Thumb: <br>
+        <input type="file" name="thumb" id="Thumbnail" disabled>
+        <a href="" target="_blank" id="thumbDownload" download="">Descargar</a><br>
+        <img src="" id="thumbPreview">
+    </label><br>
+</body>
+<script>
+    var defaultSeek = 0;
+    function previewVideo()
+    {
+        let elem = document.getElementById("videoProcess");
+        let src = URL.createObjectURL(elem.files[0])
+        document.getElementById("videoPreview").src = src;
+    }
+    function procesar()
+    {
+        let elem = document.getElementById("videoProcess");
+        getVideoCover(elem.files[0])
+    }
+    function durationFrame(elem)
+    {
+        var video = document.getElementById("videoPreview");
+        if(video.src != "")
+        {
+            defaultSeek = Math.round((elem.value / 100) * video.duration);
+            console.log(defaultSeek)
+        }
+    }
+
+    var ThumbImageName = "";
+    function getVideoCover(file) {
+        seekTo = defaultSeek;
+        ThumbImageName = file.name;
+    return new Promise((resolve, reject) => {
+        // load the file to a video player
+        const videoPlayer = document.createElement('video');
+        videoPlayer.setAttribute('src', URL.createObjectURL(file));
+        videoPlayer.load();
+        videoPlayer.addEventListener('error', (ex) => {
+            reject("error when loading video file", ex);
+        });
+        // load metadata of the video to get video duration and dimensions
+        videoPlayer.addEventListener('loadedmetadata', () => {
+            // seek to user defined timestamp (in seconds) if possible
+            if (videoPlayer.duration < seekTo) {
+                reject("video is too short.");
+                return;
+            }
+            // delay seeking or else 'seeked' event won't fire on Safari
+            setTimeout(() => {
+              videoPlayer.currentTime = seekTo;
+            }, 200);
+            // extract video thumbnail once seeking is complete
+            videoPlayer.addEventListener('seeked', () => {
+                console.log('video is now paused at %ss.', seekTo);
+                // define a canvas to have the same dimension as the video
+                const canvas = document.createElement("canvas");
+                canvas.width = videoPlayer.videoWidth;
+                canvas.height = videoPlayer.videoHeight;
+                // draw the video frame to canvas
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
+                // return the canvas image as a blob
+                ctx.canvas.toBlob(
+                    blob => {
+//                        resolve(blob);
+                        let fileName = ThumbImageName + '.jpg'
+                        let file = new File([blob], fileName,{type:"image/jpeg", lastModified:new Date().getTime()}, 'utf-8');
+                        let container = new DataTransfer(); 
+                        container.items.add(file);
+                        urlFile = URL.createObjectURL(blob);
+                        document.querySelector('#Thumbnail').files = container.files; // PARA PODER SUBIR EL ARCHIVO AL SERVIDOR
+                        document.getElementById("thumbPreview").src = urlFile;
+                        document.getElementById("thumbDownload").download = fileName;
+                        document.getElementById("thumbDownload").href = urlFile; // PARA PODER DESCARGAR LA IMAGEN
+                    },
+                    "image/jpeg",
+                    0.75 /* quality */
+                );
+            });
+        });
+    });
+}
+</script>
+</html>
